@@ -697,6 +697,558 @@ main
 
 ## Golang 指针
 
+### 指针操作
+
+#### 声明指针
+
+```go
+var ip *int
+var fp *float32 // 空指针，值为nil
+var a int = 20
+ip = &a
+```
+
+#### 获取指针所指向的变量的值
+
+```go
+b := 255
+a := &b
+fmt.Println("address of b is", a)
+fmt.Println("value of b is", *a)
+```
+
+#### 操作指针改变变量的值
+
+```go
+ b := 255
+ a := &b
+ fmt.Println("address of b is", a)
+ fmt.Println("value of b is", *a)
+ *a++
+ fmt.Println("new value of b is", b)
+```
+
+#### 使用指针传递函数的参数
+
+```go
+func change(val *int) {  
+    *val = 55
+}
+func main() {  
+    a := 58
+    fmt.Println("value of a before function call is",a) // 58
+    b := &a
+    change(b)
+    fmt.Println("value of a after function call is", a)  // 55
+}
+```
+
+
+
+### 注意事项
+
+Golang不支持指针算法：++,--这些操作
+
 
 
 ## Golang 结构体
+
+### 结构体定义和初始化
+
+```go
+//定义一个结构体类型
+type person struct {
+   name string
+   age int
+}
+//初始化结构体
+// 1. 使用字面量并按照顺序
+P := person{"Tom",25}
+// 2. 指定file:value
+P2 := person{age:24, name:"Jerry"}
+// 3. new方式，未设置初始值的，会赋予类型默认初始值
+P3 := new(person)
+p3.age=24
+p3.name="Taifi"
+```
+
+
+
+### 结构体指针
+
+```go
+package main
+
+import "fmt"
+
+type Books struct {
+   title string
+   author string
+   subject string
+   book_id int
+}
+
+func main() {
+   var Book1 Books        /* Declare Book1 of type Book */
+
+   /* book 1 描述 */
+   Book1.title = "Go 语言"
+   Book1.author = "www.runoob.com"
+   Book1.subject = "Go 语言教程"
+   Book1.book_id = 6495407
+
+   /* 打印 Book1 信息 */
+   printBook(&Book1) 
+}
+func printBook( book *Books ) {
+   fmt.Printf( "Book title : %s\n", book.title);
+   fmt.Printf( "Book author : %s\n", book.author);
+   fmt.Printf( "Book subject : %s\n", book.subject);
+   fmt.Printf( "Book book_id : %d\n", book.book_id);
+}
+```
+
+
+
+### 结构体嵌套
+
+```go
+package main
+
+import (  
+    "fmt"
+)
+
+type Address struct {  
+    city, state string
+}
+type Person struct {  
+    name string
+    age int
+    address Address
+}
+
+func main() {  
+    var p Person
+    p.name = "Naveen"
+    p.age = 50
+    p.address = Address {
+        city: "Chicago",
+        state: "Illinois",
+    }
+    fmt.Println("Name:", p.name)
+    fmt.Println("Age:",p.age)
+    fmt.Println("City:",p.address.city)
+    fmt.Println("State:",p.address.state)
+}
+```
+
+
+
+### 导出结构体
+
+**如果结构体类型是以大写字母开头，那么它可以被导出，从其他包中访问它。类似地，如果结构体的字段以大写开头，则可以从其他包访问它们。**
+
+1.在computer目录下，创建文件spec.go
+
+```go
+package computer
+
+type Spec struct { //exported struct  
+    Maker string //exported field
+    model string //unexported field
+    Price int //exported field
+}
+```
+
+2.创建main.go 文件
+
+```go
+package main
+
+import "structs/computer"  
+import "fmt"
+
+func main() {  
+    var spec computer.Spec
+    spec.Maker = "apple"
+    spec.Price = 50000
+    fmt.Println("Spec:", spec)
+}
+```
+
+
+
+## Golang make与new的区别
+
+- make用于map、slice和chan的内存分配；new用于各种类型
+- make返回值为一个有初始值（非0）的T类型；new(T)分配了零值填充的T类型的内存空间，返回值为一个地址，即一个*T类型的值
+
+
+
+## Golang 方法
+
+Golang中的方法是一个函数，它带有一个特殊的接收器类型，在func关键字和函数名之间。接收器可以是struct类型或非struct类型，struct可以在其方法内部访问
+
+### 示例
+
+```go
+type Employee struct {  
+    name     string
+    salary   int
+    currency string
+}
+
+/*
+ Employee作为方法的接收器
+*/
+func (e Employee) displaySalary() {  
+    fmt.Printf("Salary of %s is %s%d", e.name, e.currency, e.salary)
+}
+
+func main() {  
+    emp1 := Employee {
+        name:     "Sam Adolf",
+        salary:   5000,
+        currency: "$",
+    }
+    emp1.displaySalary() // Employee对象可以调用该方法
+}
+```
+
+
+
+### 接收者类型为指针
+
+```go
+type Rectangle struct {
+	width, height int
+}
+
+func (r *Rectangle) setVal(x int) {
+	r.height = x
+}
+
+func main() {
+	p := Rectangle{1, 2}
+	s := p  // 结构体是深拷贝
+	p.setVal(20)
+	fmt.Println(p.height, s.height)  // 20 2
+}
+```
+
+
+
+### 方法继承
+
+method是可以继承的，**如果匿名字段实现了一个method，那么包含这个匿名字段的struct也能调用该method**
+
+```go
+type Human struct {
+	name  string
+	age   int
+	phone string
+}
+type Student struct {
+	Human  //匿名字段
+	school string
+}
+type Employee struct {
+	Human   //匿名字段
+	company string
+}
+
+func (h *Human) SayHi() {
+	fmt.Printf("Hi, I am %s you can call me on %s\n", h.name, h.phone)
+}
+func main() {
+	mark := Student{Human{"Mark", 25, "222-222-YYYY"}, "MIT"}
+	sam := Employee{Human{"Sam", 45, "111-888-XXXX"}, "Golang Inc"}
+	mark.SayHi()
+	sam.SayHi()
+}
+```
+
+```bash
+Hi, I am Mark you can call me on 222-222-YYYY
+Hi, I am Sam you can call me on 111-888-XXXX
+```
+
+
+
+### 方法重写
+
+```go
+type Human struct {
+	name  string
+	age   int
+	phone string
+}
+type Student struct {
+	Human  //匿名字段
+	school string
+}
+type Employee struct {
+	Human   //匿名字段
+	company string
+}
+
+//Human定义method
+func (h *Human) SayHi() {
+	fmt.Printf("Hi, I am %s you can call me on %s\n", h.name, h.phone)
+}
+
+//Employee的method重写Human的method
+func (e *Employee) SayHi() {
+	fmt.Printf("Hi, I am %s, I work at %s. Call me on %s\n", e.name,
+		e.company, e.phone) //Yes you can split into 2 lines here.
+}
+
+func main() {
+	mark := Student{Human{"Mark", 25, "222-222-YYYY"}, "MIT"}
+	sam := Employee{Human{"Sam", 45, "111-888-XXXX"}, "Golang Inc"}
+	mark.SayHi()
+	sam.SayHi()
+}
+```
+
+```bash
+Hi, I am Mark you can call me on 222-222-YYYY
+Hi, I am Sam, I work at Golang Inc. Call me on 111-888-XXXX
+```
+
+
+
+## Golang 接口
+
+### 定义接口
+
+```go
+/* 定义接口 */
+type interface_name interface {
+   method_name1 [return_type]
+   method_name2 [return_type]
+   method_name3 [return_type]
+   ...
+   method_namen [return_type]
+}
+
+/* 定义结构体 */
+type struct_name struct {
+   /* variables */
+}
+
+/* 实现接口方法 */
+func (struct_name_variable struct_name) method_name1() [return_type] {
+   /* 方法实现 */
+}
+...
+func (struct_name_variable struct_name) method_namen() [return_type] {
+   /* 方法实现*/
+}
+```
+
+#### 示例
+
+```go
+package main
+
+import (
+    "fmt"
+)
+
+type Phone interface {
+    call()
+}
+
+type NokiaPhone struct {
+}
+
+func (nokiaPhone NokiaPhone) call() {
+    fmt.Println("I am Nokia, I can call you!")
+}
+
+type IPhone struct {
+}
+
+func (iPhone IPhone) call() {
+    fmt.Println("I am iPhone, I can call you!")
+}
+
+func main() {
+    var phone Phone
+
+    phone = new(NokiaPhone)
+    phone.call() // I am Nokia, I can call you!
+
+    phone = new(IPhone)
+    phone.call() // I am iPhone, I can call you!
+
+}
+```
+
+
+
+### interface的值
+
+如果我们定义了一个interface的变量，那么这个变量里面可以存实现这个interface的任意类型的对象。例如上述例子中，定义了一个Phone interface类型的变量phone，那么phone里面可以存放NokiaPhone和IPhone的值
+
+
+
+
+
+### 接口和类型的关系
+
+- 一个类型可以实现多个接口
+- 多个类型可以实现同一个接口（多态）
+
+#### 一个类型实现多个接口
+
+```go
+type Player interface{
+	playMusic()
+}
+type Video interface{
+	playVideo()
+}
+
+type Mobile struct{
+
+}
+
+func (m Mobile) playMusic(){
+	fmt.Println("Play music")
+}
+func (m Mobile) playVideo(){
+	fmt.Println("Play video")
+}
+
+func main(){
+	m := Mobile{}
+	m.playMusic()
+	m.playVideo()
+}
+```
+
+
+
+#### 多个类型可以实现同一个接口
+
+```go
+type Pet interface{
+	eat()
+}
+
+type Dog struct{
+
+}
+type Cat struct{
+
+}
+
+func (dog Dog) eat(){
+	fmt.Println("dog eat")
+}
+
+func (cat Cat) eat(){
+	fmt.Println("cat eat")
+}
+
+func main(){
+    var pet Pet
+    pet = Dog{}
+    pet.eat()  // dog eat
+    pet = Cat{}
+    pet.eat()  // cat eat
+}
+```
+
+
+
+### golang接口实现OCP设计原则
+
+OCP（Open-Closed Principle)，对扩展是开放的，对修改是关闭的
+
+```
+type Pet interface{
+	eat()
+	sleep()
+}
+type Dog struct{
+	name string
+	age int
+}
+
+func (dog Dog) eat(){
+	fmt.Println("dog eat...")
+}
+
+func (dog Dog) sleep(){
+	fmt.Println("dog sleep")
+}
+
+type Person struct{
+	name string
+}
+// 为Person添加一个养宠物方法
+func (per Person) care(pet Pet){
+	pet.eat()
+	pet.sleep()
+}
+
+func main(){
+	dog:= Dog{}
+	person:=Person{}
+	person.care(dog) // dog eat... dog sleep..
+}
+```
+
+
+
+### golang利用接口模拟OOP的属性和方法
+
+golang没有面向对象的概念，但是可以**通过struct和函数绑定来实现OOP的属性和方法**
+
+#### golang继承
+
+可以通过结构体嵌套实现继承
+
+```
+type Animal struct{
+	name string
+	age int
+}
+func (a Animal) eat(){
+	fmt.Println("eat...")
+}
+
+func (a Animal) sleep(){
+	fmt.Println("sleep...")
+}
+
+type Dog struct{
+	a Animal  // 通过嵌套结构体，继承了animal
+}
+
+type Cat struct{
+	 Animal  // 通过嵌套结构体，继承了animal
+}
+
+func main(){
+	dog := Dog{
+		a: Animal{
+			name:"kk",
+			age:2,
+		}
+	}
+	dog.a.eat()
+	dog.a.sleep()
+	
+	cat := Cat{
+		Animal:{name:"mimi",age:3}
+	}
+	cat.eat()
+	cat.sleep()
+}
+```
+
