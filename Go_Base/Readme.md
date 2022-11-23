@@ -1252,3 +1252,46 @@ func main(){
 }
 ```
 
+
+
+## Golang包
+
+### 创建包
+
+1. 创建一个名为dao的文件夹
+2. 创建一个dao.go文件
+3. 在该文件中声明包
+
+```go
+package dao
+// 代码
+```
+
+### 导入包
+
+导入包时，要导入从GOPATH开始的包路径
+
+### 注意事项
+
+一个文件夹下只能有一个package
+
+
+
+### go module
+
+是golang 1.11新加的特性，用来管理模块中的包的依赖关系
+
+### go mod 使用方法
+
+- 初始化模块
+  - go mod init <项目模块名称>
+
+- 依赖关系处理，根据go.mod
+  - go mod tidy
+- 将依赖包复制到项目下的vendor目录
+  - go mod vendor
+- 显示依赖关系
+  - go list -m all
+- 下载依赖
+  - go mod download [path@version]
+
