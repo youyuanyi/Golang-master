@@ -2,7 +2,7 @@
 
 ## Go的源码文件
 
-![Go源码文件分类](.\img\Go源码文件分类.png)
+![Go源码文件分类](https://raw.githubusercontent.com/youyuanyi/Golang-master/master/Go_Base/img/Go源码文件分类.png)
 
 ### 命令源码文件
 
@@ -61,3 +61,37 @@ func BenchmarkXXX( b *testing.B) {
 ```
 
 名称以 Benchmark 为名称前缀的函数，只能接受 *testing.B 的参数，这种测试函数是性能测试函数。
+
+
+
+## Go的命令
+
+### go run
+
+go run 命令只能接受一个命令源码文件以及若干个库源码文件，不能接受测试源码文件。
+
+一般用于调试程序
+
+#### 执行流程
+
+编译(命令源文件)->链接->生成一个**临时可执行文件**
+
+### go build
+
+go build主要用于测试编译
+
+- 如果是普通包，go build不会产生任何文件
+- 如果是main包，go build会在当前目录下生成一个可执行文件
+- 如果是库源码文件，go build指挥测试编译包是否有问题，不会产涩会给你文件
+- 可以使用go build -o执行编译输出的文件名
+
+### go install
+
+用于构建+安装包
+
+- 对库源码文件，go install会直接编译链接整个包，会在$GOPATH/pkg目录下生成.a静态文件，供其他包调用 
+- 对命令源码文件，go install会执行编译+链接+生成可执行文件的操作，生成的可执行文件在$GOPATH/bin目录下
+
+### go get
+
+go get 命令用于从远程代码仓库（比如 Github ）上下载并安装代码包，默认安装路径为$GOPATH/src
