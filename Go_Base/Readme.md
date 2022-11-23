@@ -95,3 +95,254 @@ go build主要用于测试编译
 ### go get
 
 go get 命令用于从远程代码仓库（比如 Github ）上下载并安装代码包，默认安装路径为$GOPATH/src
+
+
+
+## Golang数组与切片
+
+### 数组
+
+#### 声明方式
+
+```go
+var a [10]int
+var b = [5]float32{100.0,2.1,3.3,4.0,8.5}
+c:=[...]int{12,6,3}  // 将数组长度替换为...，由编译器负责找到长度
+```
+
+#### 遍历方式
+
+##### for
+
+```go
+package main
+
+import "fmt"
+
+func main() {  
+    a := [...]float64{67.7, 89.8, 21, 78}
+    for i := 0; i < len(a); i++ { //looping from 0 to the length of the array
+        fmt.Printf("%d th element of a is %.2f\n", i, a[i])
+    }
+}
+```
+
+##### for range
+
+```go
+package main
+
+import "fmt"
+
+func main() {  
+    a := [...]float64{67.7, 89.8, 21, 78}
+    for i,v:=range a { //looping from 0 to the length of the array
+        fmt.Printf("%d th element of a is %.2f\n", i, v)
+    }
+}
+```
+
+
+
+#### 注意事项
+
+数组是值类型，赋值操作是**深拷贝**
+
+
+
+### 切片
+
+#### 实现原理
+
+slice是一个可变长的数组，其底层结构是一个结构体
+
+```go
+type slice struct{
+	array unsafe.pointer
+	len int
+	cap int
+}
+```
+
+- array：一个数组指针，数据实际存储在该指针指向的数组上，占用8bytes
+- len：当前slice中元素的个数，8bytes
+- cap：slice的最大容量，8bytes
+
+#### slice本质
+
+slice本质不是什么动态数组，而是一个引用类型。之所以能像创建普通数组一样创建slice，是因为golang的语法糖。
+
+#### slice共享存储空间
+
+多个切片如果共享同一个底层数组，这种情况下，如果对一种一个切片或者底层数组修改，会影响到其他切片
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	s := [3]int{78, 79, 80}
+	nums1 := s[:]
+	nums2 := s[:] //多个切片共享同一个底层数组
+	fmt.Println("array before change 1", s)
+	nums1[0] = 100
+	fmt.Println("array after modification to slice nums1", s)
+	nums2[1] = 101
+	fmt.Println("array after modification to slice nums2", s)
+}
+
+```
+
+```bash
+Output:
+array before change 1 [78 79 80]
+array after modification to slice nums1 [100 79 80]
+array after modification to slice nums2 [100 101 80]
+```
+
+
+
+#### 切片常用操作
+
+##### 创建
+
+```go
+// 1.直接声明
+var slice1 []int
+
+// 2.使用字面量
+slice2 := []int{1,2,3,4,5}
+
+// 3.使用make
+slice3 := make([]int,3,5) //最大为5，当前为3的int slice
+
+// 4.从slice或者数组中截取
+s := [5]int{1,2,3,4,5}
+slice4 := s[1:3]
+slice5 := make([]int,len(slice4))
+copy(slice5,slice4)
+```
+
+
+
+##### 增加
+
+```go
+var a []int
+a = append(a,0)
+a = append(a,1,2,3)
+b := make([]int,len(a),(cap(a))*2) // b是a的两倍容量
+copy(b,a)
+```
+
+
+
+##### 遍历
+
+```go
+slice1 := []int{1,2,3,4,5}
+// 普通for循环遍历
+for i:=0;i<len(slice1);i++{
+	fmt.Println(slice1[i])
+}
+// for range遍历
+for i,v := range slice1{
+	fmt.Println(i,v)
+}
+```
+
+
+
+##### 深拷贝
+
+**深拷贝会在内存中开辟一个新的地址空间用来创建一个新对象**
+
+数组、int、string、struct、float、bool等默认是深拷贝
+
+
+
+##### 浅拷贝
+
+浅拷贝只拷贝了数据的地址，只复制指向对象的指针，所以新对象和源对象指向的内存是一样的。新对象修改所指向内存的值时，源对象所指向内存的值也变化。
+
+slice、map等引用类型默认为浅拷贝
+
+```go
+slice1 := []int{1, 2, 3, 4, 5}
+slice2 := slice1
+fmt.Printf("slice1 address:%p\n", slice1)  // slice1 address:0xc0000164e0
+fmt.Printf("slice2 address:%p\n", slice2)  // slice2 address:0xc0000164e0
+
+slice1[0] = 100
+fmt.Println("slice1:", slice1) // slice1: [100 2 3 4 5]
+fmt.Println("slice2:", slice2) // slice2: [100 2 3 4 5]
+```
+
+
+
+#### 扩容
+
+设当前容量为x，所申请容量y，扩容后容量为c，原slice长度为l
+
+- 如果y>2x，则c=y
+- 如果l<1024，则c=2x
+- 如果l>1024，则c=1.25x
+
+#### 非线程安全
+
+slice是非线性安全的，不支持并发读写。所以使用多个go routine对slice进行操作时，每次输出的值大概率会不一样
+
+##### 加锁实现slice线程安全
+
+```go
+func TestSliceConcurrencySafeByMutex(t *testing.T) {
+ var lock sync.Mutex //互斥锁
+ a := make([]int, 0)
+ var wg sync.WaitGroup
+ for i := 0; i < 10000; i++ {
+  wg.Add(1)
+  go func(i int) {
+   defer wg.Done()
+   lock.Lock()
+   defer lock.Unlock()
+   a = append(a, i)
+  }(i)
+ }
+ wg.Wait()
+ t.Log(len(a)) 
+ // equal 10000
+}
+```
+
+
+
+##### 通过channel实现slice线程安全（推荐）
+
+```go
+func TestSliceConcurrencySafeByChanel(t *testing.T) {
+ buffer := make(chan int)
+ a := make([]int, 0)
+ // 消费者
+ go func() {
+  for v := range buffer {
+   a = append(a, v)
+  }
+ }()
+ // 生产者
+ var wg sync.WaitGroup
+ for i := 0; i < 10000; i++ {
+  wg.Add(1)
+  go func(i int) {
+   defer wg.Done()
+   buffer <- i
+  }(i)
+ }
+ wg.Wait()
+ t.Log(len(a)) 
+ // equal 10000
+}
+```
+
