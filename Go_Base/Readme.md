@@ -98,7 +98,7 @@ go get 命令用于从远程代码仓库（比如 Github ）上下载并安装�
 
 
 
-## Golang数组与切片
+## Golang 数组与切片
 
 ### 数组
 
@@ -346,3 +346,357 @@ func TestSliceConcurrencySafeByChanel(t *testing.T) {
 }
 ```
 
+
+
+## Golang Map
+
+在golang中，map将一个key与一个value关联起来，其**底层实现为Hash表，所以是无序的**。
+
+### 实现原理
+
+- Golang中的**map是一个指针**，占用8 bytes，**指向hmap结构体**
+- 每个map的底层结构是hmap，**hmap包含若干个结构为bmap的bucket数组**
+- **每个bucket底层采用链表结构**
+
+#### hmap结构体
+
+```go
+type hmap struct {
+    // 代表哈希表中的元素个数，调用len(map)时，返回的就是该字段值。
+    count     int 
+     // 状态标志，下文常量中会解释四种状态位含义。
+    flags     uint8 
+    // buckets（桶）的对数log_2
+    // 如果B=5，则buckets数组的长度 = 2^5=32，意味着有32个桶
+    B         uint8  
+     // 溢出桶的大概数量
+    noverflow uint16 
+     // 哈希种子
+
+    hash0     uint32 
+    // 指向buckets数组的指针，数组大小为2^B，如果元素个数为0，它为nil。
+    buckets    unsafe.Pointer 
+ 	// 如果发生扩容，oldbuckets是指向老的buckets数组的指针，老的buckets数组大小是新的buckets的1/2;非扩容状态下，它为nil。
+    oldbuckets unsafe.Pointer 
+    // 表示扩容进度，小于此地址的buckets代表已搬迁完成。
+    nevacuate  uintptr        
+    // 这个字段是为了优化GC扫描而设计的。当key和value均不包含指针，并且都可以inline时使用。extra是指向mapextra类型的指针。
+    extra *mapextra 
+ }
+```
+
+
+
+#### bmap结构体
+
+bmap就是桶。每个桶里面会最多装8个key，这些 key 之所以会落入同一个桶，是因为它们经过哈希计算后，**哈希结果是“一类”的。**
+
+在桶内，又会根据 key 计算出来的 hash 值的高 8 位来决定 key 到底落入桶内的哪个位置（一个桶内最多有8个位置)
+
+```go
+// A bucket for a Go map.
+type bmap struct {
+    tophash [bucketCnt]uint8        
+    // len为8的数组
+    // 用来快速定位key是否在这个bmap中
+    // 桶的槽位数组，一个桶最多8个槽位，如果key所在的槽位在tophash中，则代表该key在这个桶中
+}
+//底层定义的常量 
+const (
+    bucketCntBits = 3
+    bucketCnt     = 1 << bucketCntBits
+    // 一个桶最多8个位置
+）
+
+但这只是表面(src/runtime/hashmap.go)的结构，编译期间会给它加料，动态地创建一个新的结构：
+
+type bmap struct {
+  topbits  [8]uint8
+  keys     [8]keytype
+  values   [8]valuetype
+  pad      uintptr
+  overflow uintptr
+  // 溢出桶
+}
+```
+
+
+
+从下图中可以看出key和value是各自放在一起的，好处是在某些情况下省略掉padding字段，节省内存空间
+
+<img src="D:\workspace\Go\src\Golang-Master\Go_Base\img\go bucket.png" alt="go bucket" style="zoom: 67%;" />
+
+### 主要特性
+
+#### 引用特性
+
+map是个指针，其底层为hmap，所以map是引用类型
+
+#### 随机性
+
+map是无序的，如果想顺序遍历map，需要对mapdekey先排序，再按照key的顺序遍历map
+
+#### 共享存储空间
+
+与slice相同
+
+#### 非线程安全
+
+Golang中的map是非线程安全的
+
+##### map+sync.RWMutex
+
+```go
+func BenchmarkMapConcurrencySafeByMutex(b *testing.B) {
+ var lock sync.Mutex //互斥锁
+ m := make(map[int]int, 0)
+ var wg sync.WaitGroup
+ for i := 0; i < b.N; i++ {
+  wg.Add(1)
+  go func(i int) {
+   defer wg.Done()
+   lock.Lock()
+   defer lock.Unlock()
+   m[i] = i
+  }(i)
+ }
+ wg.Wait()
+ b.Log(len(m), b.N)
+}
+```
+
+
+
+##### sync.Map
+
+sync.map是用**读写分离实现**的，其思想是空间换时间（一个read map，一个write map)。和map+RWLock的实现方式相比，它做了一些优化：
+
+可以**无锁访问read map**，而且**会优先操作read map**，倘若**只操作read map就可以满足要求(增删改查遍历)，那就不用去操作write map(它的读写都要加锁)**，所以在某些特定场景中它发生锁竞争的频率会远远小于map+RWLock的实现方式。
+
+
+
+#### 哈希冲突
+
+golang中的map底层使用hash table，用链表来解决冲突，出现冲突时，不是每一个key都申请一个结构通过链表串起来，而是以bmap为最小粒度挂载，一个bmap可以放8个kv。在哈希函数的选择上，会在程序启动时，检测 cpu 是否支持 aes，如果支持，则使用 aes hash，否则使用 memhash。
+
+
+
+### Map操作
+
+#### 创建
+
+```go
+// 1.声明变量
+var m map[int]string
+// 2.使用make
+var m2 := make(map[int]string)
+```
+
+#### 增加
+
+```go
+var m map[string]string
+m["France"]="Paris"
+m["Italy"]="Rome"
+```
+
+#### 删除
+
+```go
+m := map[string] string {"France":"Paris","Italy":"Rome","Japan":"Tokyo","India":"New Delhi"}
+delete(m,"France");
+```
+
+
+
+## Golang string
+
+Golang中的string是由多个字符组成，其不可变，采用UTF-8编码
+
+可以使用string标准库的方法来对字符串进行操作
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func main() {
+	s1 := "Tom"
+	s2 := "Jerry"
+	// 字符串连接
+	s3 := s1 + s2
+	fmt.Printf("s3:%s\n", s3)
+
+	// 使用Join完成字符串连接
+	s4 := strings.Join([]string{s1, s2}, ",")
+	fmt.Printf("s4:%s\n", s4)
+
+	// 字符串切片:左闭右开原则
+	fmt.Println("s4[1:3]:", s4[1:3])
+
+	// 字符串分割
+	s5 := strings.Split(s4, ",")
+	fmt.Println("s5:", s5)
+
+	// 是否包含某个字符串
+	fmt.Println("s3.Contains('Tom')? ", strings.Contains(s3, "Tom"))
+
+	// 字符串都转为小写
+	s6 := strings.ToLower(s3)
+	fmt.Println("s6:", s6)
+
+	// 查找前后缀
+	fmt.Println("s3.Prefix('Tom')", strings.HasPrefix(s3, "Tom"))
+	fmt.Println("s3.Suffix('Jerry')", strings.HasSuffix(s3, "Jerry"))
+
+	// 查找字符串中指定字符/子串的首次出现位置
+	fmt.Println("s3.Index('er')", strings.Index(s3, "er"))
+
+}
+
+```
+
+
+
+## Golang 函数
+
+### 函数本质
+
+函数也是一种数据类型，可以作为另一个函数的参数，也可以作为另一个函数的返回值。
+
+```go
+func add(a int, b int) int{
+	return a+b
+}
+func sub(a int, b int) int{
+	return a-b
+}
+
+func cal(op string) func(int,int) int{
+	switch op{
+	case "+":
+		return add
+	case "-":
+		return sub
+    default:
+        return nil
+	}
+}
+
+func main(){
+    ff:=cal("+")
+    r:=ff(1,2)
+}
+```
+
+### 闭包
+
+可以理解为定义在**一个函数内部的函数**。在本质上，闭包是将函数内部和函数外部连接起来的桥梁。
+
+```go
+// 返回一个函数
+func add() func(int) int{
+	var x int
+	return func(y int) int{
+		x += y
+		return x
+	}
+}
+func main(){
+    // 变量f是一个函数，它引用了其外部作用域中的x变量，此时f就是一个闭包。
+    // 在f的生命周期内，变量x也是一直有效的
+    var f = add()
+    fmt.Println(f(10))  // 10
+    fmt.Println(f(20))  // 30
+    fmt.Println(f(30))  // 60
+}
+```
+
+
+
+### defer函数
+
+可以在函数中添加多个defer语句。当函数执行到最后时，这些defer语句会**按照逆序执行**，最后该函数返回
+
+```go
+func ReadWrite() bool {
+    file.Open("file")
+    defer file.Close() // 最后才执行file.Close()
+    if failureX {
+          return false
+    } i
+    f failureY {
+          return false
+    } 
+    return true
+}
+```
+
+#### defer用途
+
+- 关闭文件句柄
+- 锁资源释放
+- 数据库连接释放
+
+
+
+### init函数
+
+#### 主要特点
+
+- init函数先于main函数自动执行，不能被其他函数调用
+- init函数没有输入参数、返回值
+- 每个包可以有多个init函数
+- 包的每个源文件也可以有多个init函数
+
+#### 作用
+
+实现包级别的一些初始化操作
+
+
+
+#### Golang中的执行顺序
+
+**initVar->init->main**
+
+```go
+package main
+
+import "fmt"
+
+var i int = initVar()
+
+func initVar() int {
+	fmt.Println("initVar...")
+	return 100
+}
+
+func init() {
+	fmt.Println("init...")
+}
+
+func main() {
+	fmt.Println("main")
+}
+
+```
+
+**输出**
+
+```bash
+PS D:\workspace\Go\src\Golang-Master\Go_Base\code> go run .\test_init.go
+initVar...
+init...
+main
+```
+
+
+
+## Golang 指针
+
+
+
+## Golang 结构体
