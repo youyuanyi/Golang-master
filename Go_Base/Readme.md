@@ -6,9 +6,9 @@
 
 ### 命令源码文件
 
-用户创建的.go源码文件，命令源码文件被install后，GOPATH如果只有一个工作区，那么相应的可执行文件会被存放到当前工作区的bin文件夹下；如果有多个工作区，就会安装到GOBIN指向的目录
+用户创建的**.go源码文件**，命令源码文件被install后，GOPATH如果只有一个工作区，那么相应的可执行文件会被存放到当前工作区的bin文件夹下；如果有多个工作区，就会安装到GOBIN指向的目录
 
-多个命令源码文件可以分开用go run命令运行起来，但是无法通过go build和go install
+**多个命令源码文件可以分开用go run命令运行起来，但是无法通过go build和go install**
 
 ```bash
 PS D:\workspace\Go\src\Golang-Master\Go_Base\code> dir
@@ -40,7 +40,7 @@ PS D:\workspace\Go\src\Golang-Master\Go_Base\code> go install
 
 ### 库源码文件
 
-库源码文件是存在于某个代码包中的普通的源码文件。库源码文件被install后，相应的归档文件(.a文件)会被存放到当前工作取得pkg的平台相关目录下
+库源码文件是存在于某个代码包中的普通的源码文件。库源码文件被install后，相应的归档文件**(.a文件)**会被存放到**$GOPAHT/pkg**目录下
 
 ### 测试源码文件
 
@@ -81,16 +81,16 @@ go run 命令只能接受一个命令源码文件以及若干个库源码文件�
 go build主要用于测试编译
 
 - 如果是普通包，go build不会产生任何文件
-- 如果是main包，go build会在当前目录下生成一个可执行文件
-- 如果是库源码文件，go build指挥测试编译包是否有问题，不会产涩会给你文件
+- 如果是main包，go build会在**当前目录下**生成一个可执行文件
+- 如果是库源码文件，go build**只会测试编译包是否有问题**，不会产生任何文件
 - 可以使用go build -o执行编译输出的文件名
 
 ### go install
 
-用于构建+安装包
+用于**构建+安装包**
 
-- 对库源码文件，go install会直接编译链接整个包，会在$GOPATH/pkg目录下生成.a静态文件，供其他包调用 
-- 对命令源码文件，go install会执行编译+链接+生成可执行文件的操作，生成的可执行文件在$GOPATH/bin目录下
+- 对**库源码文件**，go install会直接编译链接整个包，会在**$GOPATH/pkg目录下生成.a静态文件，供其他包调用** 
+- 对**命令源码文件**，go install会执行**编译+链接+生成可执行文件**的操作，**生成的可执行文件在$GOPATH/bin目录下**
 
 ### go get
 
