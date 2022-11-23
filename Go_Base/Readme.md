@@ -424,7 +424,7 @@ type bmap struct {
 
 从下图中可以看出key和value是各自放在一起的，好处是在某些情况下省略掉padding字段，节省内存空间
 
-<img src="D:\workspace\Go\src\Golang-Master\Go_Base\img\go bucket.png" alt="go bucket" style="zoom: 67%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Base/img/go%20bucket.png" />
 
 ### 主要特性
 
