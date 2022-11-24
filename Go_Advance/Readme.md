@@ -70,21 +70,6 @@
 
 
 
-### G-P-M模型
-
-Go语言的go routine机制实现了M:N的线程模型。go routine是协程的一种实现，golang内置的调度器可以让多核CPU中每个CPU执行一个协程
-
-##### 调度器如何工作
-
-**go创建协程**
-
-```go
-// 用go关键字加上一个函数
-go func(){
-  //
-}
-```
-
 
 
 ## Golang 协程
@@ -112,6 +97,12 @@ func main() {
 }
 
 ```
+
+
+
+## Golang G-P-M模型
+
+Go语言的go routine机制实现了M:N的线程模型。go routine是协程的一种实现，golang内置的调度器可以让多核CPU中每个CPU执行一个协程
 
 
 
@@ -628,11 +619,39 @@ PS D:\workspace\Go\src\Golang-Master\Go_Advance\code> go run .\test_chan_select.
 
 Golang中的定时器，内部也是通过channel实现的
 
+**Timer是一次性的时间触发**
+
+#### 创建Timer
+
+```
+t:=time.NewTimer(d) 
+t:=time.AfterFunc(d,f)
+c:=time.After(d)
+//d：定时时间
+//f：触发动作
+```
+
+#### time.NewTimer()
+
+创建一个新的计时器，该计时器在其内部的channel上至少持续d之后发送当前时间
+
+
+
+#### time.Stop()
+
+计时器停止
+
+
+
+#### time.After()
+
+**在等待持续时间之后，然后在返回的通道上发送当前时间**，相当于NewTimer(d).C
+
 
 
 ### Golang Ticker
 
-Timer只执行一次，Ticker可以周期的执行
+**Timer只执行一次，Ticker可以周期的执行**
 
 #### 创建ticker
 
@@ -804,4 +823,20 @@ func main() {
 	test_cas()
 }
 ```
+
+
+
+
+
+## Golang CSP模型
+
+
+
+## Golang 错误处理
+
+
+
+## Golang 反射
+
+
 
