@@ -416,7 +416,150 @@ main over..
 
 ### Golang runtime包
 
+Go编译器产生的是本地可执行代码，但这些**代码仍然运行在Go的runtime调度器中**。它负责**内存分配、垃圾回收、栈处理、goroutine、channel、slice、map、反射**等等。
+
+runtime包里面定义了一些channel管理相关的API
+
+#### runtime.Gosched()
+
+当前线程让出CPU时间片以让其它线程运行,它不会挂起当前线程，因此当前线程未来会继续执行
+
+当一个 `goroutine` 发生阻塞，`Go` 会自动地把与该 `goroutine` 处于同一系统线程的其他 `goroutine` 转移到另一个系统线程上去，以使这些 `goroutine` 不阻塞
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+)
+
+func show(msg string) {
+	for i := 0; i < 2; i++ {
+		fmt.Printf("msg: %v\n", msg)
+	}
+}
+
+func main() {
+	go show("aaa")
+	for i := 0; i < 2; i++ {
+		runtime.Gosched()  // 把cpu时间片让给其他channel
+		fmt.Println("bbb")
+	}
+	fmt.Println("main over")
+}
+
+```
+
+**执行结果**
+
+```bash
+PS D:\workspace\Go\src\Golang-Master\Go_Advance\code> go run .\test_runtime.go
+msg: aaa
+msg: aaa
+bbb
+bbb
+main over
+```
+
+
+
+
+
+#### runtime.Goexit()
+
+**退出当前channel**
+
+
+
+#### runtime.NumCPU()
+
+返回当前系统的CPU核数量
+
+
+
+#### runtime.GOMAXPROCS()
+
+设置最大的可同时使用的CPU核数
+
+
+
+#### runtime.NumGoroutine()
+
+返回正在执行核排队的总goroutine数
+
+
+
 ### Golang Mutext互斥锁实现
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var i int = 100
+var wg sync.WaitGroup
+var m sync.Mutex
+
+func add() {
+	defer wg.Done()
+	m.Lock()
+	i += 1 //对临界资源进行操作
+	m.Unlock()
+	fmt.Printf("i++:%v\n", i)
+}
+func sub() {
+	defer wg.Done()
+	m.Lock()
+	i -= 1
+	m.Unlock()
+	fmt.Printf("i--:%v\n", i)
+}
+
+func main() {
+	for i := 0; i < 10; i++ {
+        wg.Add(1)  //开启一个子goroutine就要Add(1)
+		go add()
+		wg.Add(1)
+		go sub()
+	}
+	wg.Wait()   // 等待所有子goroutine结束
+	fmt.Println(i)
+}
+
+```
+
+**执行结果**
+
+```bash
+PS D:\workspace\Go\src\Golang-Master\Go_Advance\code> go run .\test_mutex.go
+i--:100
+i--:99
+i++:100
+i--:99
+i++:100
+i--:99
+i++:100
+i--:99
+i++:100
+i--:99
+i++:100
+i--:99
+i++:100
+i++:101
+i++:101
+i--:100
+i++:101
+i++:101
+i--:100
+i--:100
+100
+```
+
+
 
 ### Golang select
 
@@ -483,4 +626,182 @@ PS D:\workspace\Go\src\Golang-Master\Go_Advance\code> go run .\test_chan_select.
 
 ### Golang Timer
 
+Golang中的定时器，内部也是通过channel实现的
+
+
+
 ### Golang Ticker
+
+Timer只执行一次，Ticker可以周期的执行
+
+#### 创建ticker
+
+```
+ticker := time.NewTicker(d Duration) // d为间隔时间
+```
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	ticker := time.NewTicker(time.Second) //间隔时间为1s
+	counter := 1
+	for _ = range ticker.C {
+		fmt.Println("ticker..")
+		counter++
+		if counter >= 5 {
+			ticker.Stop()
+			break
+		}
+	}
+}
+```
+
+#### 用Ticker实现周期性地在两个goroutine间收发数据
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	ticker := time.NewTicker(time.Second) //间隔时间为1s
+	chanInt := make(chan int)
+	go func() {  // sendData需要用goroutine
+		defer close(chanInt)
+		for _ = range ticker.C {  // 每隔1s执行一次
+			select {
+			case chanInt <- 1:
+				fmt.Println("send 1")
+			case chanInt <- 2:
+				fmt.Println("send 2")
+			}
+		}
+	}()
+
+	sum := 0
+	for v := range chanInt {
+		fmt.Println("收到: ", v)
+		sum += v
+		fmt.Println("sum: ", sum)
+		if sum >= 10 {
+			ticker.Stop()
+			break
+		}
+	}
+
+}
+
+```
+
+**执行结果**
+
+```bash
+收到:  2
+sum:  2
+send 2
+send 2
+收到:  2
+sum:  4
+send 2
+收到:  2
+sum:  6
+send 1
+收到:  1
+sum:  7
+send 2
+收到:  2
+sum:  9
+send 1
+收到:  1
+sum:  10
+```
+
+
+
+### Golang 原子操作
+
+sync.atomic提供的原子操作保证任一时刻只有一个goroutine对变量进行操作
+
+
+
+#### 增减操作
+
+- atomic.AddInt32 
+- atomic.AddInt64
+- atomic.AddUInt32 
+- atomic.AddUInt64
+
+```
+package main
+
+import (
+	"fmt"
+	"sync/atomic"
+)
+
+func main() {
+	var i int32 = 100
+	atomic.AddInt32(&i, 1)
+	fmt.Println("i:", i)
+
+	atomic.AddInt32(&i, -1)
+	fmt.Println("i:", i)
+
+	var j int64 = 200
+	atomic.AddInt64(&j, 1)
+	fmt.Println("j:", j)
+
+}
+
+```
+
+
+
+#### 读写操作
+
+- atomic.LoadInt32
+- atomic.LoadInt64
+- atomic.StoreInt32
+- atomic.StoreInt64
+
+```go
+func test_load() {
+	var i int32 = 100
+	j := atomic.LoadInt32(&i)
+	fmt.Println("j: ", j)  // 100
+	atomic.StoreInt32(&i, 200)
+	fmt.Println("i: ", i)  // 200
+}
+func main() {
+	test_load()
+}
+```
+
+
+
+#### 比较修改
+
+atomic.CompareAndSwapInt32
+
+```go
+func test_cas() {
+	var i int32 = 100
+	// 修改i之前比较i和100( oldValue)是否一样，一样则改为200
+	b := atomic.CompareAndSwapInt32(&i, 100, 200)
+	fmt.Println("b: ", b)   // b: True
+	fmt.Println("i: ", i)   // i: 200
+}
+func main() {
+	test_cas()
+}
+```
+
