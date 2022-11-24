@@ -1169,7 +1169,7 @@ func main(){
 
 OCP（Open-Closed Principle)，对扩展是开放的，对修改是关闭的
 
-```
+```go
 type Pet interface{
 	eat()
 	sleep()
@@ -1213,7 +1213,7 @@ golang没有面向对象的概念，但是可以**通过struct和函数绑定来
 
 可以通过结构体嵌套实现继承
 
-```
+```go
 type Animal struct{
 	name string
 	age int
