@@ -30,7 +30,7 @@
 
 程序创建的**用户线程与内核调度实体(KSE)是1:1关系**。大部分编程语言的线程库(如linux的pthread，Java的java.lang.Thread，C++11的std::thread等等)都是**对操作系统的线程（内核级线程）的一层封装，创建出来的每个线程与一个不同的KSE静态关联**，因此**其调度完全由OS调度器来做**。
 
-![kernel thread](.\img\kernel thread.jpg)
+![kernel thread](https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/kernel%20thread.jpg)
 
 **优点**
 
@@ -50,7 +50,7 @@
 
 用户线程与KSE是M：1关系，一个进程中所有创建的线程都与同一个KSE在运行时动态关联。
 
-![kernel thread](.\img\user thread.jpg)
+![kernel thread](https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/user%20thread.jpg)
 
 **优点：**
 
@@ -66,7 +66,7 @@
 
 用户线程与KSE是M：N关系。当某个KSE由于其工作的线程的阻塞操作而被内核调度出CPU时，当前与其关联的其余用户线程可以与其他的KSE建立关联关系。Go语言中的并发就是使用的这种实现方式。Go为了实现该模型自己实现了一个运行时调度器来负责Go中的"线程"与KSE的动态关联。
 
-![kernel thread](.\img\2 thread.jpg)
+![kernel thread](https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/2%20thread.jpg)
 
 
 
