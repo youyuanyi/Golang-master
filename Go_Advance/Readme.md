@@ -120,7 +120,7 @@ Go语言的go routine机制实现了M:N的线程模型。go routine是协程的�
 
 不过**一个线程可以分为用户态线程和内核态线程**。**一个用户态线程必须绑定一个内核态线程**，但是CPU并不知道用户态线程的存在，它只知道它运行的是一个内核态线程。因此可以再次细分，内核线程仍然叫`线程`，而用户线程叫`协程`
 
-<img src=".\img\thread_cpu.jpg" alt="thread_cpu" style="zoom: 33%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/thread_cpu.jpg" alt="thread_cpu" style="zoom: 33%;" />
 
 
 
@@ -130,7 +130,7 @@ Go语言的go routine机制实现了M:N的线程模型。go routine是协程的�
 
 ##### N：1
 
-<img src=".\img\N-1.jpg" alt="thread_cpu" style="zoom: 33%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/N-1.jpg" alt="thread_cpu" style="zoom: 33%;" />
 
 N个协程绑定一个线程，优点是**协程在用户态线程即可完成切换，不会陷入到内核态**，**这种切换非常的轻量快速**
 
@@ -142,7 +142,7 @@ N个协程绑定一个线程，优点是**协程在用户态线程即可完成�
 
 ##### 1:1
 
-<img src=".\img\1-1.jpg" alt="thread_cpu" style="zoom: 33%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/1-1.jpg" alt="thread_cpu" style="zoom: 33%;" />
 
 1个协程绑定一个线程，协程的调度都由CPU来完成
 
@@ -154,7 +154,7 @@ N个协程绑定一个线程，优点是**协程在用户态线程即可完成�
 
 ##### M：N
 
-<img src=".\img\M-N.jpg" alt="thread_cpu" style="zoom: 33%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/M-N.jpg" alt="thread_cpu" style="zoom: 33%;" />
 
 M个协程绑定一个线程，是N:1和1:1类型的结合
 
@@ -176,7 +176,7 @@ M-thread （线程）
 
 #### GMP模型
 
-<img src=".\img\GMP.jpg" alt="thread_cpu" style="zoom: 50%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/GMP.jpg" alt="thread_cpu" style="zoom: 50%;" />
 
 在Golang中，**线程是运行goroutine的实体**，**调度器的功能是把可运行的goroutine分配到工作线程上。**
 
@@ -225,7 +225,7 @@ M-thread （线程）
 
 #### go func()调度流程
 
-<img src=".\img\gofun.jpg" alt="thread_cpu" style="zoom: 50%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/gofun.jpg" alt="thread_cpu" style="zoom: 50%;" />
 
 1. 通过go func()创建一个G
 2. G优先放入当前M所对应的P的本地队列中，如果本地队列满了，则放入全局队列
@@ -236,7 +236,7 @@ M-thread （线程）
 
 #### 调度器的生命周期
 
-<img src=".\img\调度器的生命周期.jpg" alt="thread_cpu" style="zoom: 67%;" />
+<img src="https://github.com/youyuanyi/Golang-master/raw/master/Go_Advance/img/%E8%B0%83%E5%BA%A6%E5%99%A8%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F.jpg" alt="thread_cpu" style="zoom: 67%;" />
 
 ##### M0
 
