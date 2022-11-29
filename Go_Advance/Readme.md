@@ -98,6 +98,14 @@ func main() {
 
 ```
 
+### Goroutine的底层实现
+
+Goroutine底层使用协程(coroutine)实现并发，coroutine是一种运行在用户态的用户线程，类似于绿色线程(greenthread)，其具有以下特点：
+
+- 用户空间，避免了内核态和用户态的切换导致的成本
+- 可以由语言和框架进行调度
+- 更小的栈空间允许创建大量的实例
+
 
 
 ## Golang G-P-M模型
@@ -109,6 +117,31 @@ Go语言的go routine机制实现了M:N的线程模型。go routine是协程的�
 ## Golang 通道
 
 通道(channel)是golang routines通信的管道。Go语言中，要传递某个数据给另一个go routine，可以把这个数据封装成一个对象，然后把这个对象的指针传入某个channel中，另外一个go routine就可以从这个channel中读出这个指针，并处理其指向的内存对象。
+
+### channel线程安全
+
+Golang channel是Golang中的一个数据类型，它是线程安全的。
+
+因为channel的底层实现维护了一个互斥锁mutex，不需要人为实现加锁操作，所以channel是线程安全的
+
+```go
+type hchan struct {
+	qcount   uint           // total data in the queue
+	dataqsiz uint           // size of the circular queue
+	buf      unsafe.Pointer // points to an array of dataqsiz elements
+	elemsize uint16
+	closed   uint32
+	elemtype *_type // element type
+	sendx    uint   // send index
+	recvx    uint   // receive index
+	recvq    waitq  // list of recv waiters
+	sendq    waitq  // list of send waiters
+
+	lock mutex // 互斥锁
+}
+```
+
+
 
 ### 通道声明
 
@@ -830,9 +863,136 @@ func main() {
 
 ## Golang CSP模型
 
+### CSP是什么
 
+Communicating Sequential Process (CSP，通信顺序进程)，是一种并发编程模型，用于描述**两个独立的并发实体通过共享的channel进行通信**的并发模型。
+
+在Golang中，只用到了CSP的Process和Channel（对应到Golang中的goroutine/channel）
 
 ## Golang 错误处理
+
+Golang中没有`try...catch`这类语法，而是鼓励每个函数都返回一个`error`，通过判断`error != nil`来捕捉错误
+
+### 错误类型
+
+```go
+type error interface{
+	Error() string
+}
+```
+
+实现这个接口的类型都可以作为一个错误使用
+
+### 自定义错误
+
+#### errors New()
+
+```go
+package errors
+
+// New returns an error that formats as the given text.
+func New(text string) error {
+    return &errorString{text}
+}
+
+// errorString is a trivial implementation of error.
+type errorString struct {
+    s string
+}
+
+func (e *errorString) Error() string {
+    return e.s
+}
+```
+
+##### 例子
+
+```go
+package main
+
+import (  
+    "errors"
+    "fmt"
+    "math"
+)
+
+func circleArea(radius float64) (float64, error) {  
+    if radius < 0 {
+        return 0, errors.New("Area calculation failed, radius is less than zero")
+    }
+    return math.Pi * radius * radius, nil
+}
+
+func main() {  
+    radius := -20.0
+    area, err := circleArea(radius)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    fmt.Printf("Area of circle %0.2f", area)
+}
+```
+
+
+
+#### fmt Errorf()
+
+```go
+func Errorf(format string, a ...interface{}) error{}
+```
+
+##### 例子
+
+```go
+package main
+
+import (  
+    "fmt"
+    "math"
+)
+
+func circleArea(radius float64) (float64, error) {  
+    if radius < 0 {
+        return 0, fmt.Errorf("Area calculation failed, radius %0.2f is less than zero", radius)
+    }
+    return math.Pi * radius * radius, nil
+}
+
+func main() {  
+    radius := -20.0
+    area, err := circleArea(radius)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    fmt.Printf("Area of circle %0.2f", area)
+}
+```
+
+
+
+### panic
+
+Golang的内建函数，如果函数F中书写了panic语句，会终止其后要执行的代码；如果函数F内存在defer函数，则按照defer的逆序执行；函数F的调用者G，调用完函数F后不会继续执行，直到整个goroutine退出并报告错误
+
+### recover
+
+Golang的内建函数，用来控制goroutine的panicking行为，捕获panic，一般用在defer中，通过recover来终止一个goroutine的panicking过程，从而恢复正常代码的执行，且可以获取通过panic传递的error
+
+简单来说，go中可以抛出一个panic的异常，然后在defer中通过recover捕获这个异常，然后正常处理
+
+
+
+### 异常处理场景
+
+1. 空指针引用
+2. 下标越界
+3. 除数为0
+4. 不应该出现的分支
+5. 输入不应该引起函数错误
+
+对于异常，我们可以选择在一个合适的上游去recover，并打印堆栈信息，使得部署后的程序不会终止。
 
 
 
