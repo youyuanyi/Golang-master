@@ -349,7 +349,45 @@ OK
 
 朋友的定位，附近的人，打车距离计算
 
+```bash
+127.0.0.1:6379> geoadd china:city 116.40 39.90 beijing   # 添加地理位置(经度、纬度)
+(integer) 1
+127.0.0.1:6379> geoadd china:city 121.47 31.23 shanghai
+(integer) 1
+127.0.0.1:6379> geoadd china:city 106.50 29.53 chongqing
+(integer) 1
+
+```
+
+```
+georadius：以给定的经纬度为中心，找出某一半径内的元素
+```
+
+
+
 #### hyperloglog
+
+基数统计：统计不重复的元素，可以接受误差
+
+优点：占用的内存是固定的：12KB
+
+```bash
+127.0.0.1:6379> PFADD mykey a b c d e
+(integer) 1
+127.0.0.1:6379> PFCOUNT mykey
+(integer) 5
+127.0.0.1:6379> pfadd mykey2 f g h j k
+(integer) 1
+127.0.0.1:6379> pfcount mykey2
+(integer) 5
+127.0.0.1:6379> PFMERGE mykey3 mykey mykey2
+OK
+127.0.0.1:6379> PFCOUNT mykey3
+(integer) 10
+
+```
+
+
 
 #### Bitmap
 
