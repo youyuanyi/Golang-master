@@ -136,17 +136,222 @@ OK
 
 #### List
 
+所有的List命令都以`L`或者`R`开头
+
+```bash
+######################################################################################
+127.0.0.1:6379> LPUSH list one  # 将一个值或多个值插入列表的头部
+(integer) 1
+127.0.0.1:6379> LPUSH list two
+(integer) 2
+127.0.0.1:6379> LPUSH list three
+(integer) 3
+127.0.0.1:6379> LRANGE list 0 -1
+1) "three"
+2) "two"
+3) "one"
+127.0.0.1:6379> RPUSH list four
+(integer) 4
+127.0.0.1:6379> RPUSH list five
+(integer) 5
+127.0.0.1:6379> LRANGE list 0 -1
+1) "three"
+2) "two"
+3) "one"
+4) "four"
+5) "five"
+127.0.0.1:6379> LPOP list  # 弹出左侧第一个
+"three"
+127.0.0.1:6379> RPOP list  # 弹出右侧第一个
+"five"
+127.0.0.1:6379> LRANGE list 0 -1
+1) "two"
+2) "one"
+3) "four"
+127.0.0.1:6379> LINDEX list 2  # 获取某个List的某个Index的值
+"four"
+127.0.0.1:6379> LINDEX list 1
+"one"
+127.0.0.1:6379> LREM list 1 two  # 移除指定的值
+(integer) 1
+127.0.0.1:6379> LRANGE list 0 -1
+1) "one"
+2) "four"
+127.0.0.1:6379> lset list 1 123  # 设置List中的某个Index的值
+OK
+127.0.0.1:6379> LRANGE list 0 -1
+1) "one"
+2) "123"
+######################################################################################
+127.0.0.1:6379> RPUSH mylist hello
+(integer) 1
+127.0.0.1:6379> RPUSH mylist world
+(integer) 2
+127.0.0.1:6379> LINSERT mylist before "world" "other"  # 在world前添加other
+(integer) 3
+127.0.0.1:6379> LRANGE mylist 0 -1
+1) "hello"
+2) "other"
+3) "world"
+127.0.0.1:6379> LINSERT mylist after "world" "new"   # 在world后添加new
+(integer) 4
+127.0.0.1:6379> LRANGE mylist 0 -1
+1) "hello"
+2) "other"
+3) "world"
+4) "new"
+
+```
+
 
 
 #### Set
 
+set中的值不能重复，命令以`s`开头,是无序不重复集合
+
+```bash
+127.0.0.1:6379> SADD myset hello  # 往myset中添加元素
+(integer) 1
+127.0.0.1:6379> SADD myset yjc
+(integer) 1
+127.0.0.1:6379> SADD myset fd
+(integer) 1
+127.0.0.1:6379> SMEMBERS myset   # 查看myset所有元素
+1) "yjc"
+2) "fd"
+3) "hello"
+127.0.0.1:6379> SISMEMBER myset yjc  # 判断yjc是否在myset中存在
+(integer) 1
+127.0.0.1:6379> scard myset			# 获取myset集合中的元素个数
+(integer) 3
+127.0.0.1:6379> SREM myset hello	# 删除myset中的hello元素
+(integer) 1
+127.0.0.1:6379> SMEMBERS myset
+1) "yjc"
+2) "fd"
+127.0.0.1:6379> SRANDMEMBER myset  # 随机选出一个元素
+"yjc"
+127.0.0.1:6379> SRANDMEMBER myset
+"fd"
+######################################################################################
+127.0.0.1:6379> sadd myset hello
+(integer) 1
+127.0.0.1:6379> sadd myset world
+(integer) 1
+127.0.0.1:6379> sadd myset yjc
+(integer) 1
+127.0.0.1:6379> sadd myset2 set2
+(integer) 1
+127.0.0.1:6379> smove myset myset2 yjc  # 将myset中的yjc移动到myset2
+(integer) 1
+127.0.0.1:6379> SMEMBERS myset
+1) "world"
+2) "hello"
+127.0.0.1:6379> SMEMBERS myset2
+1) "yjc"
+2) "set2"
+###################################################################################
+127.0.0.1:6379> sadd key1 a
+(integer) 1
+127.0.0.1:6379> sadd key1 b
+(integer) 1
+127.0.0.1:6379> sadd key1 c
+(integer) 1
+127.0.0.1:6379> sadd key2 b
+(integer) 1
+127.0.0.1:6379> sadd key2 c
+(integer) 1
+127.0.0.1:6379> SDIFF key1 key2   # 差集
+1) "a"
+127.0.0.1:6379> SINTER key1 key2  # 交集
+1) "c"
+2) "b"
+127.0.0.1:6379> sadd key2 d
+(integer) 1
+127.0.0.1:6379> SUNION key1 key2  # 并集
+1) "a"
+2) "c"
+3) "d"
+4) "b"
+
+```
+
+
+
 #### Hash
+
+key-{k/v,k/v...}，以`h`开头
+
+```bash
+127.0.0.1:6379> hset myhash field1 yjc
+(integer) 1
+127.0.0.1:6379> hget myhash field1
+"yjc"
+127.0.0.1:6379> hmset myhash field1 hello field2 world
+OK
+127.0.0.1:6379> hmget myhash field1 field2
+1) "hello"
+2) "world"
+127.0.0.1:6379> hgetall myhash   # 获取hash中全部的k/v
+1) "field1"
+2) "hello"
+3) "field2"
+4) "world"
+127.0.0.1:6379> hdel myhash field1  # 删除hash指定的key字段和value
+(integer) 1
+127.0.0.1:6379> hgetall myhash
+1) "field2"
+2) "world"
+```
+
+
 
 #### Zset
 
+有序集合
+
+```bash
+127.0.0.1:6379> zadd myset 1 one
+(integer) 1
+127.0.0.1:6379> zadd myset 2 two 3 three
+(integer) 2
+127.0.0.1:6379> zrange myset 0 -1
+1) "one"
+2) "two"
+3) "three"
+127.0.0.1:6379> zadd salary 2500 xiaohong
+(integer) 1
+127.0.0.1:6379> zadd salary 500 zhangsan
+(integer) 1
+127.0.0.1:6379> zadd salary 5000 lis
+(integer) 1
+127.0.0.1:6379> ZRANGEBYSCORE salary -inf +inf   # 排序
+1) "zhangsan"
+2) "xiaohong"
+3) "lis"
+127.0.0.1:6379> ZRANGEBYSCORE salary -inf +inf  withscores
+1) "zhangsan"
+2) "500"
+3) "xiaohong"
+4) "2500"
+5) "lis"
+6) "5000"
+
+```
 
 
-### 扩展类型
+
+### 特殊类型
+
+#### geospatial
+
+地理位置
+
+朋友的定位，附近的人，打车距离计算
+
+#### hyperloglog
+
+#### Bitmap
 
 
 
