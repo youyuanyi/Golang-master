@@ -18,8 +18,10 @@
 ### 用途
 
 - 数据库
-- 缓存
+- 缓存，减轻主数据库的压力
 - 消息中间件MQ
+- 计数场景，比如关注数、粉丝数
+- 热门排行榜，需要排序的场景特别适合用ZSET
 
 ### Redis命令
 
@@ -720,17 +722,231 @@ RDB执行快照的几种情况：
 - 根据配置规则进行自动快照
 - 用户执行`SAVE`，`BGSAVE`命令
 - 执行`FLUSHALL`命令
-- 执行复制(replication)时
+- 执行`复制(replication)`时
+- 退出redis时
+
+#### RDB工作原理
+
+Redis会单独fork一个子进程来实现RDB持久化，子进程会先将数据写入到一个临时文件中，等待持久化过程结束后，用这个临时文件替换上次持久化好的文件。整个过程中，主进程是不进行任何IO操作的，效率很高
+
+#### RDB优点
+
+- 适合大规模的数据恢复
+- 对数据的完整性要求不高
+
+#### RDB缺点
+
+- 需要一定的时间间隔进行操作
+
+- 最后一次持久化后的数据可能丢失
+- fork进程的时候会占用一定的内存空间
+
+
 
 ### AOF
 
+#### AOF工作原理
+
 在每次**执行写命令之后将命令记录下来**，保存到AOF文件中。
 
-AOF是为了弥补RDB会发生数据不一致性的问题，所以采用日志的形式来记录每个写操作，并保存到文件中
+AOF是为了弥补RDB会发生数据不一致性的问题，所以采用**日志的形式**来**记录每个写操作**，并保存到文件中
 
 Redis重启时会根据AOF文件中的内容将写指令从前到后执行一次
+
+默认不开启，需要修改redis.conf中的`appendonly` 为`yes`
+
+
+
+#### AOF优点
+
+- 每一次修改都同步
+- 每秒同步一次数据
+
+#### AOF缺点
+
+- 相对于数据文件来说，aof远远大于rdb，修复速度慢
+- aof运行效率慢
 
 
 
 ## Redis发布订阅
+
+### 订阅一个或多个频道的信息
+
+`SUBSCRIBE channel [channel...]`
+
+```bash
+127.0.0.1:6379> SUBSCRIBE bjfu
+Reading messages... (press Ctrl-C to quit)
+1) "subscribe"
+2) "bjfu"
+3) (integer) 1
+1) "message"
+2) "bjfu"
+3) "hello,everyone"
+1) "message"
+2) "bjfu"
+3) "hello,redis"
+
+```
+
+### 往频道发送信息
+
+`PUBLISH channel message`
+
+```bash
+127.0.0.1:6379> PUBLISH bjfu hello,everyone
+(integer) 1
+127.0.0.1:6379> PUBLISH bjfu hello,redis
+(integer) 1
+```
+
+### 原理
+
+redis-server维护了一个字典，key为一个个channel，value为订阅该channel的客户端。通过`SUBSCRIBE`命令订阅某个频道后，就会将该client添加到这个channel的字典中
+
+通过`PUBLISH`命令向订阅者发送消息，redis-server会使用给定的频道作为key，在它所维护的channel字典中查找订阅了这个频道的所有客户端的链表，遍历这个链表，将消息发布给所有订阅者。
+
+
+
+## Redis主从复制
+
+### 概念
+
+主从复制，是指将一台Redis服务器的数据复制到其他Redis服务器中。前者称为主节点(master)，后者称为从节点（slave）。数据的复制是单向的，只能由主节点到从节点。Master以写为主，Slave以读为主
+
+默认情况下，每台Redis服务器都是主节点。一个主节点可以有多个从节点，但一个从节点只能有一个主节点。
+
+### 主从复制作用
+
+- 数据冗余：主从复制实现了数据的热备份
+- 故障恢复：当主节点出现问题时，可以由从节点提供服务，实现快速的故障恢复
+- 负载均衡：在主从复制的基础上，配合读写分离，可以由主节点提供写服务，从节点提供读服务，分担服务器负载，尤其是在写少读多的情况下，通过多个从节点分担读负载，可以大大提高Redis服务器的并发量
+- 高可用基石：主从复制是哨兵和集群能够实施的基础
+
+### 环境配置
+
+```bash
+127.0.0.1:6379> info replication  # 查看当前的信息
+# Replication
+role:master
+connected_slaves:0
+master_replid:de5b8c1cb536ca796a87974eb42213d4140ea299
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:0
+second_repl_offset:-1
+repl_backlog_active:0
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:0
+repl_backlog_histlen:0
+###################################### 
+复制3个配置文件，修改对应的信息
+1.端口号
+2.pid名字
+3.log文件名字
+4.dump.rdb名字
+######################################
+启动三个redis：
+redis-server redis80.conf
+redis-server redis81.conf
+######################################
+查看状态
+yjc@VM-4-5-ubuntu:/etc/redis$ ps -ef | grep redis
+redis        909       1  0 16:11 ?        00:00:03 /usr/bin/redis-server 0.0.0.0:6379
+yjc         1308    1297  0 16:11 pts/0    00:00:00 redis-cli
+root        8262       1  0 16:55 ?        00:00:00 redis-server 0.0.0.0:6380
+root        8318       1  0 16:56 ?        00:00:00 redis-server 0.0.0.0:6381
+yjc         8375    7073  0 16:56 pts/2    00:00:00 grep --color=auto redis
+```
+
+
+
+### 一主二从
+
+默认情况下，每台Redis服务器都是主节点，一般情况下只需要配置从节点
+
+主:6379；从：6380,6381
+
+#### 附属到一个主节点
+
+```bash
+127.0.0.1:6380> SLAVEOF 127.0.0.1 6379   # 6380认当前主机下的6379端口的redis-server为主节点
+OK
+127.0.0.1:6380> info replication
+# Replication
+role:slave
+master_host:127.0.0.1
+master_port:6379
+master_link_status:down
+master_last_io_seconds_ago:-1
+master_sync_in_progress:1
+slave_read_repl_offset:0
+slave_repl_offset:0
+master_sync_total_bytes:-1
+master_sync_read_bytes:0
+master_sync_left_bytes:-1
+master_sync_perc:-0.00
+master_sync_last_io_seconds_ago:0
+master_link_down_since_seconds:-1
+slave_priority:100
+slave_read_only:1
+replica_announced:1
+connected_slaves:0
+master_failover_state:no-failover
+master_replid:b3f6f4263e52c3be442a1fa9740c6ac197f30b30
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:0
+second_repl_offset:-1
+repl_backlog_active:0
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:0
+repl_backlog_histlen:0
+
+############
+在主机中查看
+127.0.0.1:6379> info replication
+# Replication
+role:master
+connected_slaves:1   # 多了一台slave
+slave0:ip=127.0.0.1,port=6380,state=wait_bgsave,offset=0,lag=0
+master_replid:998c95f2a90a52ff420325a53505523b28564dc8
+master_replid2:0000000000000000000000000000000000000000
+master_repl_offset:0
+second_repl_offset:-1
+repl_backlog_active:1
+repl_backlog_size:1048576
+repl_backlog_first_byte_offset:1
+repl_backlog_histlen:0
+```
+
+#### 真实的主从配置应该在配置文件中修改
+
+```
+修改redis80.conf,redis81.conf中的replication 127.0.0.1 6379
+在从节点的bash中执行
+redis-server /etc/redis/redis80.conf
+redis-server /etc/redis/redis81.conf
+redis-cli -p 6380
+redis-cli -p 6381
+```
+
+
+
+### 复制原理
+
+Slave启动成功连接到master后会发送一个sync同步命令
+
+Master接到命令，启动后台的存盘进程，同时收集所有接收到的用于修改数据的命令，在后台执行完毕之后，master将整个数据文件传送到Slave，完成一次完全同步
+
+全量复制：slave服务器接收到数据库文件数据后，将其存盘并加载到内存中
+
+增量复制：Master继续将新的所有收集到的修改命令依次传给slave，完成同步
+
+
+
+## Redis哨兵模式
+
+
+
+## Redis缓存穿透和雪崩
 
