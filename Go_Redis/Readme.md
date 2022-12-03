@@ -391,6 +391,320 @@ OK
 
 #### Bitmap
 
+操作二进制位来进行记录，就只有0和1两个状态
+
+统计用户信息：活跃/不活跃，登录/未登录等两个状态
+
+
+
+## Redis基本事务操作
+
+### Redis事务本质
+
+一组命令的集合，一个事务中的所有命令都会被序列化，在执行过程中按照顺序执行
+
+### Redis事务特点
+
+- Redis的单条命令可以保证原子性，但是**事务不保证原子性**
+- **Redis事务没有隔离级别的概念**，即所有的命令在事务中并没有被直接执行，只有发起执行命令的时候才会执行
+
+### Redis事务操作
+
+#### 开启事务
+
+`Multi`
+
+#### 命令入队
+
+
+
+#### 执行事务
+
+`exec`
+
+
+
+#### 取消事务
+
+`DISCARD`
+
+#### 例子
+
+```bash
+127.0.0.1:6379> MULTI      # 开启事务
+OK
+#  命令入队
+127.0.0.1:6379(TX)> set k1 v1
+QUEUED
+127.0.0.1:6379(TX)> set k2 v2
+QUEUED
+127.0.0.1:6379(TX)> get k2
+QUEUED
+127.0.0.1:6379(TX)> set k3 v3
+QUEUED
+# 执行事务
+127.0.0.1:6379(TX)> exec
+1) OK
+2) OK
+3) "v2"
+4) OK
+127.0.0.1:6379> MULTI
+OK
+127.0.0.1:6379(TX)> set k1 v1
+QUEUED
+127.0.0.1:6379(TX)> set k2 v2
+QUEUED
+127.0.0.1:6379(TX)> set k4 v4
+QUEUED
+127.0.0.1:6379(TX)> DISCARD   # 取消事务
+OK
+127.0.0.1:6379> get k4
+(nil)
+
+```
+
+
+
+### Redis事务异常处理
+
+#### 编译型异常
+
+命令语法有问题，则Redis事务中的**所有命令都不执行**
+
+```bash
+127.0.0.1:6379> multi
+OK
+127.0.0.1:6379(TX)> set k1 v1
+QUEUED
+127.0.0.1:6379(TX)> set k2 v2
+QUEUED
+127.0.0.1:6379(TX)> set k3 v4
+QUEUED
+127.0.0.1:6379(TX)> getset k3   # 语法错误
+(error) ERR wrong number of arguments for 'getset' command
+127.0.0.1:6379(TX)> set k4 v4
+QUEUED
+127.0.0.1:6379(TX)> exec   # 检查出编译型异常，所有命令都不执行
+(error) EXECABORT Transaction discarded because of previous errors.
+127.0.0.1:6379> get k1
+(nil)
+127.0.0.1:6379> get k4
+(nil)
+
+```
+
+
+
+#### 运行时异常
+
+除数为0，字符串错误操作等运行时异常错误，那么**执行事务时，其他没有错误的命令仍然会执行**
+
+```bash
+127.0.0.1:6379> multi
+OK
+127.0.0.1:6379(TX)> set k1 "v1"  
+QUEUED 
+127.0.0.1:6379(TX)> incr k1   # 对字符串+1，是无法执行的
+QUEUED
+127.0.0.1:6379(TX)> set k2 v2
+QUEUED
+127.0.0.1:6379(TX)> set k3 v3
+QUEUED
+127.0.0.1:6379(TX)> get k3
+QUEUED
+127.0.0.1:6379(TX)> exec
+1) OK
+2) (error) ERR value is not an integer or out of range
+3) OK
+4) OK
+5) "v3"
+```
+
+
+
+## Redis乐观锁
+
+### 乐观锁
+
+- 认为什么时候都不会出问题，所以不会上锁，在更新数据的时候去判断一下在此期间是否有人修改过数据
+- 获取version
+- 更新时比较version
+
+### Redis监视测试
+
+```bash
+127.0.0.1:6379> set money 100
+OK
+127.0.0.1:6379> set out 0
+OK
+127.0.0.1:6379> WATCH money  # 监视money
+OK
+127.0.0.1:6379> multi   # 事务正常结束，数据期间没有发生变动
+OK
+127.0.0.1:6379(TX)> DECRBY money 20
+QUEUED
+127.0.0.1:6379(TX)> INCRBY out 20
+QUEUED
+127.0.0.1:6379(TX)> exec
+1) (integer) 80
+2) (integer) 20
+
+```
+
+### 测试多线程
+
+```bash
+### 线程1:
+127.0.0.1:6379> watch money
+OK
+127.0.0.1:6379> multi
+OK
+127.0.0.1:6379(TX)> DECRBY money 10
+QUEUED
+127.0.0.1:6379(TX)> INCRBY out 10
+QUEUED
+
+#### 此时线程2突然执行
+127.0.0.1:6379> get money
+"80"
+127.0.0.1:6379> set money 1000
+OK
+
+### 回到线程1,提交事务，此时watch检测到money已经被修改，事务取消
+127.0.0.1:6379(TX)> exec
+(nil)
+## 线程1恢复事务正常
+127.0.0.1:6379> unwatch  # 解锁，不过Redis不管事务是否执行成功，都会对watch对象解锁
+OK
+127.0.0.1:6379> watch money
+OK
+127.0.0.1:6379> DECRBY money 10
+(integer) 990
+127.0.0.1:6379> INCRBY out 10
+(integer) 30
+127.0.0.1:6379> INCRBY money 10
+(integer) 1000
+127.0.0.1:6379> DECRBY out 10
+(integer) 20
+
+
+```
+
+
+
+## Redis.conf详解
+
+### Redis对大小写不敏感
+
+```bash
+# Note on units: when memory size is needed, it is possible to specify
+# it in the usual form of 1k 5GB 4M and so forth:
+#
+# 1k => 1000 bytes
+# 1kb => 1024 bytes
+# 1m => 1000000 bytes
+# 1mb => 1024*1024 bytes
+# 1g => 1000000000 bytes
+# 1gb => 1024*1024*1024 bytes
+#
+# units are case insensitive so 1GB 1Gb 1gB are all the same.
+
+```
+
+### Redis可以include其他配置文件
+
+```bash
+# If instead you are interested in using includes to override configuration
+# options, it is better to use include as the last line.
+#
+# include /path/to/local.conf
+# include /path/to/other.conf
+
+```
+
+### Redis网络
+
+```bash
+# bind 127.0.0.1 ::1  默认绑定127.0.0.1，如果需要外部访问，则注释掉
+port 6379
+tcp-keepalive 300
+protected-mode yes # 保护模式
+```
+
+
+
+### 通用
+
+```bash
+daemonize yes # 以守护进程进行
+pidfile /var/run/redis/redis-server.pid  # 如果以后台方式运行，就需要制定pid文件
+# Specify the server verbosity level.
+# This can be one of:
+# debug (a lot of information, useful for development/testing)
+# verbose (many rarely useful info, but not a mess like the debug level)
+# notice (moderately verbose, what you want in production probably)
+# warning (only very important / critical messages are logged)
+loglevel notice  # 日志级别
+logfile /var/log/redis/redis-server.log  # 日志文件
+databases 16  # 数据库数量
+
+```
+
+### 快照
+
+```bash
+appendfsync everysecsave 900 1  # 如果900s (15min) 内至少修改了1个key，则进行持久化操作
+save 300 10  # 如果300s内，至少10个key进行了操作
+save 60 10000  # 如果60s内，至少10000个key进行了修改
+stop-writes-on-bgsave-error no  # 持久化如果出错，是否继续工作
+rdbcompression yes # 是否压缩rdb文件，需要消耗一些CPU资源
+rdbchecksum yes # 保存rdb文件时，校验rdb文件，如果出错，会自动去修复
+dbfilename dump.rdb  # rdb持久化后保存的文件
+dir /var/lib/redis  # rdb持久化后保存文件路径
+appendonly no # 默认不开启AOF模式，默认使用RDB
+appendfilename "appendonly.aof"  # 持久化的AOF文件
+appendfsync everysec  # 每秒执行一次sync，可能会丢失这一秒的数据
+# appendfsync always  # 每次修改，都会同步
+```
+
+
+
+### REPLICATION-复制
+
+
+
+### 设置密码
+
+```bash
+# requirepass 123456
+```
+
+
+
+### 限制CLIENTS
+
+```bash
+# maxclients 10000
+
+```
+
+
+
+### redis内存
+
+```bash
+# maxmemory <bytes>  # redis配置最大的内存容量
+# maxmemory-policy noeviction  # 内存达到上限之后的处理策略
+1.volatile-lru：只对设置了过期时间的key进行LRU （默认）
+2.allkeys-lru：删除lru算法的key
+3.volatile-random：随机删除即将过期的key
+4.allkeys-random：随机删除
+5.volatile-ttl：删除即将过期的
+6.noeviction：永不过期，返回错误
+```
+
+
+
 
 
 ## Redis数据持久化
@@ -415,3 +729,8 @@ RDB执行快照的几种情况：
 AOF是为了弥补RDB会发生数据不一致性的问题，所以采用日志的形式来记录每个写操作，并保存到文件中
 
 Redis重启时会根据AOF文件中的内容将写指令从前到后执行一次
+
+
+
+## Redis发布订阅
+
