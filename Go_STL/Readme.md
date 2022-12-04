@@ -362,3 +362,94 @@ b.ReadBytes(delimiter byte) // 需要一个byte作为分隔符，读的时候从
 b.ReadString(delimiter byte) // 需要一个byte作为分隔符，读的时候从缓冲区里找出第一个出现的分隔符
 ```
 
+
+
+
+
+
+
+## Context
+
+Context(上下文)，可以理解为**goroutine的相关环境的快照**，其中**包含函数调用以及涉及的相关变量值**
+
+通过Context可以**区分不同的goroutine请求**，因为在Golang Servers中**，每个请求都是在单个goroutine中完成的**。在单个goroutine（A）中也会有请求其他服务（另一个goroutine B），这就涉及了多个Goroutine之间的调用。**管理这些goroutine之间的交互就是一个问题**。
+
+Golang通过让Context机制，**相互调用的goroutine之间通过传递context变量保持关联**，有效地控制各goroutine的运行。这样一来，就可以**通过Context追踪goroutine调用树**，并**在这些调用树之间传递通知和数据**
+
+### Context结构
+
+```go
+type Context interface {
+    // Done 在Context被取消或超时时返回一个close的channel，close的channel可以作为广播通知，告诉给context相关的函数要停止当前工作然后返回
+    Done() <-chan struct{}
+
+    // Err返回context被取消的原因，在Done之后关闭
+    Err() error
+
+    // Deadline返回了这个context被取消的时间
+    Deadline() (deadline time.Time, ok bool)
+
+    // value返回和context中key相关的value或者nil
+    Value(key interface{}) interface{}
+}
+```
+
+### 顶层Context:Background
+
+```go
+func Background() Context
+```
+
+BackGound是所有Context的**root**，不能够被cancel。
+
+该Context通常**由接收request的第一个goroutine创建，它不能被取消、没有值、也没有过期时间**，常作为处理request的顶层context存在
+
+### 下层Context
+
+有了根节点之后，就要创建子孙节点。**为了更好地控制子孙节点，Context提供了CancelFunc类型来控制子goroutine（通常是取消）**。再配合Context提供的Done方法，goroutine可以检查自身是否被父级节点cancel
+
+```go
+// 带cancel返回值的Context，一旦cancel被调用，即取消该创建的context
+func WithCancel(parent Context) (ctx Context, cancel CancelFunc) 
+
+// 带有效期cancel返回值的Context，即必须到达指定时间点调用的cancel方法才会被执行
+func WithDeadline(parent Context, deadline time.Time) (Context, CancelFunc) 
+
+// 带超时时间cancel返回值的Context，类似Deadline，前者是时间点，后者为时间间隔
+// 相当于WithDeadline(parent, time.Now().Add(timeout)).
+func WithTimeout(parent Context, timeout time.Duration) (Context, CancelFunc)
+```
+
+
+
+#### WitchCancel
+
+返回一个子Context，它仅当父Context的Done被关闭时关闭自己的Done通道，或者在自己被调用Cancel时，关闭自己的Done
+
+#### WithDeadline
+
+达到Deadline后调用的cancel方法才能取消当前context
+
+#### WithTimeout
+
+超时后context被取消
+
+
+
+### WithValue
+
+```go
+// NewContext returns a new Context carrying userIP.
+func NewContext(ctx context.Context, userIP net.IP) context.Context {
+    return context.WithValue(ctx, userIPKey, userIP)
+}
+
+// FromContext extracts the user IP address from ctx, if present.
+func FromContext(ctx context.Context) (net.IP, bool) {
+    // ctx.Value returns nil if ctx has no value for the key;
+    // the net.IP type assertion returns ok=false for nil.
+    userIP, ok := ctx.Value(userIPKey).(net.IP)
+    return userIP, ok
+}
+```
+
