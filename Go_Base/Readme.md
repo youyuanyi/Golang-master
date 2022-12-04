@@ -1269,7 +1269,15 @@ package dao
 
 ### 导入包
 
-导入包时，要导入从GOPATH开始的包路径
+导入包时，要导入从`GOPATH`或者`GOROOT/src`开始的包路径
+
+在导入某个包时，如果是只希望执行包初始化的`init`函数，而不使用包内部的数据时，可以使用匿名引用格式：
+
+```go
+import _ "fmt"
+```
+
+
 
 ### 注意事项
 
@@ -1284,7 +1292,7 @@ package dao
 ### go mod 使用方法
 
 - 初始化模块
-  - go mod init <项目模块名称>
+  - go mod init 项目模块名称
 
 - 依赖关系处理，根据go.mod
   - go mod tidy
